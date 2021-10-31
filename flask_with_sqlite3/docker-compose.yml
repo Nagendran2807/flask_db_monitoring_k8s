@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+
+  flask_sqlite3:
+    build:
+      context: ./services/flask_with_sqlite
+      dockerfile: Dockerfile
+    ports:
+      - 5010:5000
+    environment:
+      - FLASK_ENV=development

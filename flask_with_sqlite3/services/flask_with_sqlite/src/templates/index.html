@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block players %}
+    <h1>{% block team %} Welcome to FlaskBlog {% endblock %}</h1>
+    {% for team in teams %}
+        <a href="{{ url_for('team', team_id=team['id']) }}">
+            <h2>{{ team['team_name'] }}</h2>
+        </a>
+        <span class="badge badge-primary">{{ team['created'] }}</span>
+        <a href="{{ url_for('edit', id=team['id']) }}">
+            <span class="badge badge-warning">Edit</span>
+        </a>
+        <hr>
+    {% endfor %}
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block players %}
+<h1>{% block team %} Edit "{{ team['team_name'] }}" {% endblock %}</h1>
+
+<form method="post">
+    <div class="form-group">
+        <label for="title">TeamName</label>
+        <input type="text" name="title" placeholder="Type team name"
+               class="form-control"
+               value="{{ request.form['title'] or team['title'] }}">
+        </input>
+    </div>
+
+    <div class="form-group">
+        <label for="content">Players</label>
+        <textarea name="content" placeholder="Type Players Name"
+                  class="form-control">{{ request.form['content'] or team['content'] }}</textarea>
+    </div>
+    <div class="form-group">
+        <button type="submit" class="btn btn-primary">Submit</button>
+    </div>
+</form>
+<hr>
+<form action="{{ url_for('delete', id=team['id']) }}" method="POST">
+    <input type="submit" value="Delete Team"
+            class="btn btn-danger btn-sm"
+            onclick="return confirm('Are you sure you want to delete this post?')">
+</form>
+{% endblock %}
