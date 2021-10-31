@@ -14,9 +14,9 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     depends_on:
-      - postgres
+      - postgres_new
 
-  postgres:
+  postgres_new:
     build:
       context: ./services/db
       dockerfile: Dockerfile

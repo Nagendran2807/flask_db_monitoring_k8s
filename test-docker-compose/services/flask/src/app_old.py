@@ -3,49 +3,55 @@ from flask.ext.sqlalchemy import SQLAlchemy
 from werkzeug.exceptions import abort
 import os
 
-from sqlalchemy import create_engine, engine
+#import psycopg2
+
 app = Flask(__name__)
+# app.config['SECRET_KEY'] = '36G8]Etakt#:GK-nJv'
 
-import os
+# db_user = os.environ.get('POSTGRES_USER')
+# db_pass = os.environ.get('POSTGRES_PASSWORD')
+# db_host = "postgres"
+# #db_host = os.environ.get('SERVICE_POSTGRES_SERVICE_HOST')
 
-db_user = os.environ.get('POSTGRES_USER')
-db_pass = os.environ.get('POSTGRES_PASSWORD')
-db_host = "postgres_new"
-#db_host = os.environ.get('SERVICE_POSTGRES_SERVICE_HOST')
-database_url = 'postgresql://{0}:{1}@{2}/post_db'.format(db_user, db_pass, db_host)
+
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://{0}:{1}@{2}/flask_db'.format(
+#     db_user, db_pass, db_host
+# )
 
 app.config.from_object("config.Config")
+
 db = SQLAlchemy(app)
-class Post(db.Model):
-    __tablename__ = 'posts'
+
+class Team(db.Model):
+    __tablename__ = 'teams'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    title = db.Column(db.String(50), nullable=False)
-    content = db.Column(db.String(50), nullable=False)
+    team_name = db.Column(db.String(50), nullable=False)
+    players = db.Column(db.String(50), nullable=False)
+
 db.drop_all()
 db.create_all()
-db.session.add(Post(
-    title = "INDIA",
-    content = 'virat, rohit',
+# # db.session.commit()
+
+db.session.add(Team(
+    team_name = "INDIA",
+    players = 'virat, rohit',
 ))
 
-db.session.add(Post(
-    title = "England",
-    content = 'maxwel, rohit',
+db.session.add(Team(
+    team_name = "England",
+    players = 'maxwel, rohit',
 ))
 
 db.session.commit()
 db.session.remove()
 
-
-db_engine = create_engine(database_url)
-
-
-@app.route('/')
-def index():
-    conn = db_engine.connect()
-    posts = conn.execute('SELECT * FROM posts').fetchall()
-    conn.close()
-    return render_template('index.html', posts=posts)
+# s_tb_name = "teams"
+# ls_cols = ["team_name", "players"]
+# ls_vals = ["('INDIA', 'virat, rohit')",
+#             "('Australia', 'Maxwell, Hayden')"]
+# s_cols = ', '.join(ls_cols)
+# s_vals = ', '.join(ls_vals)
+# session.execute(f"INSERT INTO {s_tb_name} ({s_cols}) VALUES {s_vals}")
 
 # from sqlalchemy import create_engine
 # db_string = 'postgresql://{0}:{1}@{2}/demo_db'.format(db_user, db_pass, db_host)
@@ -70,9 +76,9 @@ def index():
 def hello_name(name):
     return "Welcome to SRE Demo " + str(name)
 
-# @app.route('/')
-# def index():
-#     return render_template('test.html')
+@app.route('/')
+def index():
+    return render_template('test.html')
 
 @app.route('/ping')
 def ping():
@@ -81,9 +87,9 @@ def ping():
         'message': 'pong!'
     })
 
-# @app.route('/test', methods=['POST'])
-# def test():
-#     if request.method == 'POST':
+@app.route('/test', methods=['POST'])
+def test():
+    if request.method == 'POST':
         
 
 # @app.route('/prereg', methods=['POST'])

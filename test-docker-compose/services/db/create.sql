@@ -1,1 +1,1 @@
-CREATE DATABASE demo_db;
+CREATE DATABASE post_db;
