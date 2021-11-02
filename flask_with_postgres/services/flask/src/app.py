@@ -160,9 +160,10 @@ def delete(id):
 #     return redirect(url_for('index'))
 
 ############# Print the name who visit that hello path #############
+@app.route('/hello/')
 @app.route('/hello/<name>')
-def hello_name(name):
-    return "Welcome to SRE Team   " + str(name)
+def hello(name=None):
+    return render_template('hello.html', name=name)
 
 
 

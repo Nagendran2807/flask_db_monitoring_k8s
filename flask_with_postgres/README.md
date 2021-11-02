@@ -30,7 +30,13 @@ $ docker-compose up -d --build
 
 
 1. [http://localhost:5010](http://localhost:5010)
-2. [http://localhost:hello/DevOpsGuy](http://localhost:5010/hello/DevOpsGuy)
+2. [http://localhost:5010/hello](http://localhost:5010/hello)
+3. [http://localhost:hello/DevOpsGuy](http://localhost:5010/hello/DevOpsGuy)
+
+You can put any name after /hello 
+ex: [http://localhost:hello/<Yourname>](http://localhost:5010/hello/<Yourname>)
+
+If taking time to comeup, please refresh the page
 
 Note:
 -------

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<title>Hello from Flask</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+<body>
+
+<header class="w3-container w3-teal">
+  <h1>Welcome to my app tour</h1>
+{% if name %}
+  <h1>Hello {{ name }}!</h1>
+  <h2>Hope, You doing well!</h2>
+{% else %}
+  <h1>Hello, World!</h1>
+  <h2>Hope, You doing well!</h2>
+{% endif %}
+  <h2>Thanks for giving opportunity to explore Python application using Flask</h2>
+</header>
+
+<img src="/static/forestbridge.jpeg" alt="Nice Bridge" style="width:100%">
