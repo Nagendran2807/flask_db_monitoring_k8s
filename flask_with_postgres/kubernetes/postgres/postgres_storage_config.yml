@@ -1,0 +1,57 @@
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: postgres-config
+#   labels:
+#     db: postgres
+# data:
+#   POSTGRES_DB: "demo_db"
+#   POSTGRES_USER: "test"
+#   POSTGRES_PASSWORD: "12345"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-credentials
+  labels:
+    db: postgres
+type: Opaque
+data:
+  # echo -n 'postgres' | base64
+  user: cG9zdGdyZXM=
+  # echo -n 'admin123' | base64
+  password: YWRtaW4xMjM=
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-pv-vol
+  labels:
+    db: postgres
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"
+
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: postgres-pv-claim
+  labels:
+    db: postgres
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

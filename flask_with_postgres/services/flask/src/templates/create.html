@@ -1,19 +1,19 @@
 {% extends 'base.html' %}
 
-{% block players %}
-<h1>{% block team %} Create a New Team {% endblock %}</h1>
+{% block content %}
+<h1>{% block title %} Create a New Post {% endblock %}</h1>
 
 <form method="post">
     <div class="form-group">
         <label for="title">TeamName</label>
         <input type="text" name="title"
-               placeholder="Type team name" class="form-control"
+               placeholder="Post TeamName" class="form-control"
                value="{{ request.form['title'] }}"></input>
     </div>
 
     <div class="form-group">
         <label for="content">Players</label>
-        <textarea name="content" placeholder="Type Players Name"
+        <textarea name="content" placeholder="Post Players info"
                   class="form-control">{{ request.form['content'] }}</textarea>
     </div>
     <div class="form-group">
