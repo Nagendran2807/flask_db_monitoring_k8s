@@ -3,10 +3,18 @@ from flask.ext.sqlalchemy import SQLAlchemy
 from werkzeug.exceptions import abort
 import os
 import datetime
-
+import logging
+from prometheus_flask_exporter import PrometheusMetrics
 from sqlalchemy import create_engine, engine
 
+
+logging.basicConfig(level=logging.INFO)
+logging.info("Setting LOGLEVEL to INFO")
+
 app = Flask(__name__)
+metrics = PrometheusMetrics(app)
+
+metrics.info("app_info", "App Info, flask application", version="1.0.0")
 
 # secret key is used to secure sessions, which allow Flask to remember information from one request to another,
 # such as moving from the new team page to the index page.

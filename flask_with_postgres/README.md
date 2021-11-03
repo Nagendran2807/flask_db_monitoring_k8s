@@ -18,9 +18,10 @@
 Build the images and spin up the containers:
 
 ```sh
-$ docker-compose up -d --build
+git clone https://github.com/Nagendran2807/flask_db_monitoring_k8s.git
+cd flask_with_postgres
+docker-compose up --build
 ```
-
 
 ### CRUD operation done 
 1. Create New Team (CREATE)
@@ -29,12 +30,12 @@ $ docker-compose up -d --build
 4. Delete the team (DELETE)
 
 
-1. [http://localhost:5010](http://localhost:5010)
-2. [http://localhost:5010/hello](http://localhost:5010/hello)
-3. [http://localhost:hello/DevOpsGuy](http://localhost:5010/hello/DevOpsGuy)
+1. [http://localhost:5020](http://localhost:5020)
+2. [http://localhost:5020/hello](http://localhost:5020/hello)
+3. [http://localhost:5020:hello/DevOpsGuy](http://localhost:5020/hello/DevOpsGuy)
 
 You can put any name after /hello 
-ex: [http://localhost:hello/<Yourname>](http://localhost:5010/hello/<Yourname>)
+ex: [http://localhost:5020:hello/<Yourname>](http://localhost:5020/hello/<Yourname>)
 
 If taking time to comeup, please refresh the page
 
@@ -55,7 +56,7 @@ Install and run [Minikube](https://kubernetes.io/docs/setup/minikube/):
 Start the cluster:
 
 ```sh
-$ minikube start
+$ minikube start --memory=4096 --cpus 4 --driver=hyperkit
 $ minikube dashboard
 ```
 
@@ -64,7 +65,7 @@ $ minikube dashboard
 Create the volume, Volume Claim & Secret 
 
 ```sh
-$ kubectl apply -f ./kubernetes/postgres/postgres_storage_config.yml
+kubectl apply -f ./kubernetes/postgres/postgres_storage_config.yml
 ```
 
 #### Postgres
@@ -72,16 +73,18 @@ $ kubectl apply -f ./kubernetes/postgres/postgres_storage_config.yml
 Create deployment & Service 
 
 ```sh
-$ kubectl apply -f ./kubernetes/postgres/postgres.yml
+kubectl apply -f ./kubernetes/postgres/postgres.yml
 ```
 
 Create the database:
 
 ```sh
-$ kubectl get pods
-$ pod_name=$(kubectl get po -l db=postgres -o jsonpath="{.items[0].metadata.name}")
-$ kubectl exec -it $pod_name -it -- createdb -U postgres demo_db
-$ kubectl exec -it $pod_name -it -- psql -U postgres
+kubectl get pods
+
+pod_name=$(kubectl get po -l db=postgres -o jsonpath="{.items[0].metadata.name}")
+
+kubectl exec -it $pod_name -it -- createdb -U postgres demo_db
+
 kubectl exec -it $pod_name -i -- psql -U postgres <<EOF
 ALTER USER postgres WITH PASSWORD 'admin123';
 EOF
@@ -98,57 +101,72 @@ $ docker push <hub-user>/<repo-name>[:<tag>]
 $ docker build -t crazy28/flask-kubernetes:1.0 ./services/flask
 $ docker push crazy28/flask-kubernetes:1.0
 ```
+Note: I pushed the image to my dockerhub a/c and make it as public... so you can ignore this one 
 
 Create the deployment & service :
 
 ```sh
-$ kubectl apply -f ./kubernetes/flask/flask.yml
+kubectl apply -f ./kubernetes/flask/flask.yml
 ```
 
-Add entry to */etc/hosts* file:
-
-```
-<MINIKUBE_IP> hello.world
-```
-
-
-
-###### Monitoring  #############
-
-### prereq's
-1. helm 
+--------------------------------------------------
+### MONITORING  ###
+-------------------------------------------------
 
 ``` sh
-$ kubectl create ns monitoring
-$ helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-$ helm repo add grafana https://grafana.github.io/helm-charts
+kubectl create -f ./kubernetes/monitoring/manifests/setup/
+kubectl create -f ./kubernetes/monitoring/manifests/
+
+kubectl get all -n monitoring
+
+## Destroying / Tearing down Prometheus Grafana stack 
+kubectl delete --ignore-not-found=true -f ./kubernetes/monitoring/manifests/ -f ./kubernetes/monitoring/manifests/setup
 ```
 
-```sh
-helm install prometheus prometheus-community/prometheus
-helm install grafana stable/grafana
-```
+Note: Right now, many services we exposed via nodeport... so have to use minikube IP and port no to browse the page...
 
-```sh
-kubectl get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+To simplify to browse, created ingress rule to map required services with domain
+
+1. [http://flask.testing.com](http://flask.testing.com)                         ---->   Flask website to do CRUD operation
+2. [http://grafana.testing.com](http://grafana.testing.com)                     ---->   Grafana page 
+3. [http://prometheus.testing.com](http://prometheus.testing.com)               ---->   Promethus metrics page
+4. [http://prometheus-alert.testing.com](http://prometheus-alert.testing.com)   ---->   Prometheus alerting page
+
+Default credentials for Grafana...:
+username: admin
+password: admin
+
+-------------------------------------------
+### Configure Ingress ####
+---------------------------------------------
+If you dont want to use Ingress..., 
+Please use minikube service <service-name> --url command ---> Can use the URL which shown here to access that service
+``` sh 
+minikube addons enable ingress
+minikube addons enable ingress-dns
+minikube addons enable metrics-server
 ```
+Please follow the link to setup ingress dns for minikube - [ingress-dns](https://minikube.sigs.k8s.io/docs/handbook/addons/ingress-dns/)
 
 bootstrap
 6417
 ```sh
 ```
-
-![Promethus Architecture](images/prometheus_intro.png)
+Prometheus Architecture :
+--------------------------
+![Prometheus Architecture](images/prometheus_intro.png)
 
 ####  Cheat Commands ####
-``` sh
+```sh
 minikube image load  <image-nme>  #### push local docker images to minikube 
 
 psql -h localhost -U postgres -d postgres -p 5432   ### connect ppostgresql
 
 ```
 
-#### Theoretical part ####
+----------------------------------------------
+### Theoretical part ###
+-------------------------------------------------
 Why SQLAlchemy...?
 SQLAlchemy offers several benefits over the raw SQL approach, including:
 
@@ -164,9 +182,11 @@ Helm allows us to bundle related Kubernetes objects into charts and treat them a
 3. we can use the same chart for deploying on multiple environments like stag/prod or multiple cloud providers.
 
 
-## continuous delivery ##
+## Continuous Delivery ##
 Either use Argo CD (or) GitLab
 
+## High Level Process Flow :
+-----------------------------
 ![High Level Process Flow](images/CI-CD-k8s.png)
 
 ## Argo CD ##
@@ -190,7 +210,7 @@ Auto DevOps provides you with pre-built CI/CD configuration, so you can automati
 4. it allows you to choose between its auto-deploy component for Kubernetes and Helm charts
 Overall: GitLab will simplify and streamline your entire Kubernerted app development cycle
 
-## Should follow branching strategies ##
+Note: Should follow branching strategies
 
 
 ##### How we deploy and run application across multiple regions #####
@@ -213,10 +233,11 @@ This sets up grouping infrastructure states at a product/project level while est
 ## Approach ##
 Using the terraform module and backend systems, the infrastructure-as-source code repository layout & Terraform backend configuration snippet described in the section provides us with a way to:
 
-establish a structure in which common or a product/project's infrastructure is templatised for reuse across various enviroments
-fine tune product/project's infrastructure at an environment level while even adding environment specific infrastructure for those non-ideal cases
-Maintain state at a region level so that we could have better isolation, canary deploy, etc
+(i) Establish a structure in which common or a product/project's infrastructure is templatised for reuse across various enviroments
+(ii) Fine tune product/project's infrastructure at an environment level while even adding environment specific infrastructure for those non-ideal cases
+(iii) Maintain state at a region level so that we could have better isolation, canary deploy, etc
 
+Sample Tree Structure:
 ![Sample Tree Structure](images/s3_structure.png)
 
 working with the setup
@@ -237,4 +258,51 @@ terraform workspace select ap-southeast-1
 terraform plan -var-file=ap-southeast-1.tfvars
 terraform apply -var-file=ap-southeast-1.tfvars
 ```
+
+
+#### How we deploy production application on cloud ###
+Below things should consider when deploy apps in K8s...
+1. Application is Stateful or Stateless
+2. If it's java based then will come up with heap, cpu, memory calculations
+3. Application scaling based on CPU (we can achieve using hpa object in k8s)
+4. Decide which database we gonna use... Prefer either Aurora MySQL or Aurora PostgreSQl
+Why Aurora...?
+(i) Scaling based on CPU 
+(ii) Can make it as global database (across multiple regions)
+    Like one region act as Primary and another one act as Secondary 
+(iii) Same storage in underlying hardware (no need to specify EBS... It is scalable)
+
+5. Need to setup DR
+6. If huge traffic involved then implement Redis Cache for faster access and deliver good performance 
+    Redis - In memory database
+7. k8s side couple of objects needs to be enabled...
+    Pod DistributionObject, node anti affinity, HPA
+8. Need to setup CI-CD to make it faster delivery...
+9. Implement any one of below tool to store the images 
+(JFrog, ECR, DTR, Nexus)
+10. If we gitlab CI, then we can use Gitlab Registry
+
+Need to integrate Gitlab CI CD to kubernetes...
+Added sample file for gitlab ci cd k8s... Used test & prod as of now...
+Inorder to push images to the docker.io registry. we need to provide client's authentication credentials
+```sh
+<servers>
+   <server>
+      <id>registry-1.docker.io</id>
+      <username>${DOCKER_LOGIN}</username>
+      <password>${DOCKER_PASSWORD}</password>
+   </server>
+</servers>
+```
+Have attached the pipeline file if application is nodejs and consider to deploy in lambda...
+
+
+Gitlab CI provide end to end solution
+1. Source Control Repository
+2. Gitlab Image Registry
+3. Gitlab backend to store terraform files
+4. RBAC 
+5. Integrate with Slack, Teams etc for notification
+6. can reuse our template as much as possible 
+
 

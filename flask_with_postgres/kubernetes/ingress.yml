@@ -1,18 +1,76 @@
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: example-ingress
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /$1
+  name: flask-ingress
 spec:
   rules:
-    - host: hello-world.info
+    - host: flask.testing
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: web
+                name: flask-service
                 port:
-                  number: 8080
+                  number: 8000
+
+
+--- 
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-ingress
+  namespace: monitoring
+spec:
+  rules:
+    - host: grafana.testing
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prometheus-ingress
+  namespace: monitoring
+spec:
+  rules:
+    - host: prometheus.testing
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus-k8s
+                port:
+                  number: 9090
+
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prometheus-alert-ingress
+  namespace: monitoring
+spec:
+  rules:
+    - host: promethus-alert.testing
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: alertmanager-main
+                port:
+                  number: 9093

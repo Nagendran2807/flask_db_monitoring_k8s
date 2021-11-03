@@ -3,6 +3,7 @@ kind: Service
 metadata:
   name: flask-service
   labels:
+    env: dev
     app: flask
 spec:
   type: NodePort
@@ -18,8 +19,9 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: flask-deployment
+  name: flask
   labels:
+    env: dev
     app: flask
 spec:
   replicas: 1
@@ -64,12 +66,38 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: postgres-credentials
-                  key: password             
-          # readinessProbe:
-          #   httpGet:
-          #     path: /
-          #     port: 5000
-          #   periodSeconds: 10
-          #   timeoutSeconds: 3
-          #   successThreshold: 1
-          #   failureThreshold: 5
+                  key: password 
+          # when the container can take traffic           
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            periodSeconds: 10
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 5
+          # when the container should be restarted
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            successThreshold: 1
+            failureThreshold: 5
+
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: flask
+  labels:
+    app: flask
+spec:
+  maxReplicas: 5
+  minReplicas: 2
+  targetCPUUtilizationPercentage: 50
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: flask
