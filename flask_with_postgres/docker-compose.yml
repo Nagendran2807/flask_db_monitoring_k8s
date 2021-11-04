@@ -28,30 +28,30 @@ services:
       - POSTGRES_PASSWORD=postgres
 
 
-  example-prometheus:
-    image: prom/prometheus:latest
-    restart: unless-stopped
-    container_name: example-prometheus
-    ports:
-      - 9090:9090
-    volumes:
-      - ./services/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
+  # example-prometheus:
+  #   image: prom/prometheus:latest
+  #   restart: unless-stopped
+  #   container_name: example-prometheus
+  #   ports:
+  #     - 9090:9090
+  #   volumes:
+  #     - ./services/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+  #   command:
+  #     - '--config.file=/etc/prometheus/prometheus.yml'
 
-  example-grafana:
-    image: grafana/grafana:latest
-    restart: unless-stopped
-    user: "472"
-    container_name: example-grafana
-    depends_on:
-      - example-prometheus
-    ports:
-      - 3000:3000
-    volumes:
-      - ./grafana/config.ini:/etc/grafana/grafana.ini
-      - ./services/monitoring/datasource.yml:/etc/grafana/provisioning/datasource.yml
-      - ./services/monitoring/dashboard.yml:/etc/grafana/provisioning/dashboards/default.yaml
-      - ./services/monitoring/dashboards:/var/lib/grafana/dashboards
-    env_file:
-      - ./services/monitoring/config.monitoring
+  # example-grafana:
+  #   image: grafana/grafana:latest
+  #   restart: unless-stopped
+  #   user: "472"
+  #   container_name: example-grafana
+  #   depends_on:
+  #     - example-prometheus
+  #   ports:
+  #     - 3000:3000
+  #   volumes:
+  #     - ./grafana/config.ini:/etc/grafana/grafana.ini
+  #     - ./services/monitoring/datasource.yml:/etc/grafana/provisioning/datasource.yml
+  #     - ./services/monitoring/dashboard.yml:/etc/grafana/provisioning/dashboards/default.yaml
+  #     - ./services/monitoring/dashboards:/var/lib/grafana/dashboards
+  #   env_file:
+  #     - ./services/monitoring/config.monitoring

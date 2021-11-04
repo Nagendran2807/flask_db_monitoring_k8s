@@ -1,0 +1,309 @@
+before_script:
+  - echo "Hassle Free DEPLOYMENT"
+
+include:
+
+  ## terraform module for infra compoents and lambda 
+  - project: "customer/cloud-engineering/terraform/tf-customer-modules-templates"
+    file: "templates/terraform.yml"
+    ref: v2.0.0
+
+  ## common variables ##
+  - project: "customer/common-vars"
+    file: common-variables.yml
+    ref: main
+
+#---------------------
+# global configuration
+#---------------------
+default:
+  tags:
+    - tui
+    - tui-shared
+
+variables:
+  TF_VAR_PROJECT_DIR: ${CI_PROJECT_DIR}
+  TF_VAR_COMMIT_ID: ${CI_COMMIT_SHORT_SHA}
+  TF_VAR_APPLICATION_NAME: "updated-order"
+  
+.dev_variables: &dev_variables
+  TF_VAR_AWS_ACCOUNT_ID: ${DEV_AWS_ACCOUNT_ID}
+  TF_VAR_AWS_ACCOUNT_NAME: ${DEV_AWS_ACCOUNT_NAME}
+  TF_VAR_AWS_EXTERNAL_ID: ${DEV_EXTERNAL_ID}
+  TF_VAR_ENVIRONMENT: dev
+  # CODE_PATH: "dev"
+
+.test_variables: &test_variables
+  TF_VAR_AWS_ACCOUNT_ID: ${TEST_AWS_ACCOUNT_ID}
+  TF_VAR_AWS_ACCOUNT_NAME: ${TEST_AWS_ACCOUNT_NAME}
+  TF_VAR_AWS_EXTERNAL_ID: ${TEST_EXTERNAL_ID}
+  TF_VAR_ENVIRONMENT: test
+
+.preprod_variables: &preprod_variables
+  TF_VAR_AWS_ACCOUNT_ID: ${_UAT_AWS_ACCOUNT_ID}
+  TF_VAR_AWS_ACCOUNT_NAME: ${UAT_AWS_ACCOUNT_NAME}
+  TF_VAR_AWS_EXTERNAL_ID: ${UAT_EXTERNAL_ID}
+  TF_VAR_ENVIRONMENT: uat
+#  CODE_PATH: "preprod"
+
+.prod_variables: &prod_variables
+  TF_VAR_AWS_ACCOUNT_ID: ${PROD_AWS_ACCOUNT_ID}
+  TF_VAR_AWS_ACCOUNT_NAME: ${PROD_AWS_ACCOUNT_NAME}
+  TF_VAR_AWS_EXTERNAL_ID: ${EXTERNAL_ID}
+  TF_VAR_ENVIRONMENT: prod
+#  CODE_PATH: "prod"
+
+stages:
+  - test
+  - deployment_start_notification
+  - plan
+  - deploy
+  - release
+  - deployment_end_notification
+  # - destroy
+
+#-------------
+# commit suite
+#-------------
+
+tfsec:
+  extends: .tfscan_terraform_http
+  stage: test
+  # script:
+  #   - tfsec
+    # - tfsec --no-colour    
+  artifacts:
+    name: Terraform tfsec analysis
+    expire_in: 1 week
+    when: always
+    paths:
+      - tfsec
+  rules:
+    - changes:
+      - infra/**/*
+
+#######################################
+#       Terraform Validate            #
+#######################################
+tf_validate:
+  extends: .validate_terraform_s3
+  stage: test
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+      variables:
+        <<: *prod_variables
+      changes:
+        - infra/**/*
+        - infra/**/**/*
+
+    - if: $CI_COMMIT_BRANCH == "preprod"
+      variables:
+        <<: *preprod_variables
+      changes:
+        - infra/**/*
+        - infra/**/**/*
+
+    - if: $CI_COMMIT_BRANCH == "test"
+      variables:
+        <<: *test_variables
+      changes:
+        - infra/**/*
+        - infra/**/**/*
+
+    - if: $CI_COMMIT_BRANCH == "dev"
+      variables:
+        <<: *dev_variables
+      changes:
+        - infra/**/*
+        - infra/**/**/*
+
+
+# Unit Testing
+unit-test:
+  stage: test
+  image: node:lts-alpine
+  script:
+    - cd ./src/ &&  npm install yarn && yarn run jest
+  tags:
+    - trips
+    - aws-lambda
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      # changes:
+      #   - src/**/*
+
+
+#######################################
+#       Terraform Plan               #
+#######################################
+tf_plan:
+  extends: .plan_terraform_s3
+  stage: plan
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev"
+      variables:
+        <<: *dev_variables
+      changes:
+        - infra/**/*
+        - infra/**/**/*
+        - src/**/**/*
+        - src/*/*               
+
+    - if: $CI_COMMIT_BRANCH == "test"
+      variables:
+        <<: *test_variables
+      changes:
+        - infra/**/*
+        - infra/**/**/*
+        - src/**/**/*
+        - src/*/*               
+
+    - if: $CI_COMMIT_BRANCH == "preprod"
+      variables:
+        <<: *preprod_variables
+      changes:
+        - infra/**/*
+        - infra/**/**/*
+        - src/**/**/*
+        - src/*/*              
+
+    - if: $CI_COMMIT_BRANCH == "master"
+      variables:
+        <<: *prod_variables
+      changes:
+        - infra/**/*
+        - infra/**/**/*
+        - src/**/**/*
+        - src/*/*       
+
+#######################################
+#            DEPLOY Lambda            #
+#######################################
+tf_deploy:
+  extends: .deploy_terraform_s3
+  stage: deploy
+  # environment:
+  #   name: $CI_COMMIT_BRANCH
+  #   # on_stop: tf_destroy
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev"
+      variables:
+        <<: *dev_variables
+      changes:
+        - infra/**/*
+        - infra/**/**/*
+        - src/**/**/*
+        - src/*/*           
+
+    - if: $CI_COMMIT_BRANCH == "test"
+      variables:
+        <<: *test_variables
+      when: manual
+      changes:
+        - infra/**/*
+        - infra/**/**/*
+        - src/**/**/*
+        - src/*/*             
+      
+    - if: $CI_COMMIT_BRANCH == "preprod"
+      when: manual
+      variables:
+        <<: *preprod_variables
+      changes:
+        - infra/**/*
+        - infra/**/**/*
+        - src/**/**/*
+        - src/*/*             
+
+    - if: $CI_COMMIT_BRANCH == "master"
+      when: manual
+      variables:
+        <<: *prod_variables
+      changes:
+        - infra/**/*
+        - infra/**/**/*
+        - src/**/**/*
+        - src/*/*        
+
+#-------------------------------------#
+#         Notification jobs
+#-------------------------------------#
+start-notification:
+  extends: .deployment_start_notification
+  stage: deployment_start_notification
+  tags:
+    - docker
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "preprod"'
+      variables:
+        DN_ENVIRONMENT: ${CI_COMMIT_BRANCH}
+      changes:
+        - infra/**/*
+        - infra/**/**/*        
+    
+    - if: $CI_COMMIT_BRANCH == "master"
+      variables:
+        DN_ENVIRONMENT: "prod"
+      changes:
+        - infra/**/*
+        - infra/**/**/*        
+
+end-notification-success:
+  extends: .deployment_end_notification_success
+  stage: deployment_end_notification
+  tags:
+    - docker
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "preprod"'
+      variables:
+        DN_ENVIRONMENT: ${CI_COMMIT_BRANCH}      
+      when: on_success
+      changes:
+        - infra/**/*
+        - infra/**/**/*      
+
+    - if: $CI_COMMIT_BRANCH == "master"
+      variables:
+        DN_ENVIRONMENT: "prod"
+      when: on_success
+      changes:
+        - infra/**/*
+        - infra/**/**/*
+
+end-notification-failure:
+  extends: .deployment_end_notification_failure
+  stage: deployment_end_notification
+  tags:
+    - docker
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "preprod"'
+      variables:
+        DN_ENVIRONMENT: ${CI_COMMIT_BRANCH}      
+      when: on_failure
+      changes:
+        - infra/**/*
+        - infra/**/**/*      
+
+    - if: $CI_COMMIT_BRANCH == "master"
+      variables:
+        DN_ENVIRONMENT: "prod"
+      when: on_failure
+      changes:
+        - infra/**/*
+        - infra/**/**/*      
+
+
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+  script:
+    - echo "Running Release for ${APPLICATION_NAME} version ${RELEASE_VERSION}"
+  release:
+    name: 'Release ${RELEASE_VERSION}'
+    description: 'Release ${RELEASE_DESCRIPTION}'
+    tag_name: '${RELEASE_VERSION}'
+    ref: 'master'
+  tags:
+    - docker

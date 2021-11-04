@@ -23,7 +23,7 @@ cd flask_with_postgres
 docker-compose up --build
 ```
 
-### CRUD operation done 
+### CRUD operations 
 1. Create New Team (CREATE)
 2. Get the Team details (READ)
 3. Edit existing Team (UPDATE)
@@ -35,7 +35,7 @@ docker-compose up --build
 3. [http://localhost:5020:hello/DevOpsGuy](http://localhost:5020/hello/DevOpsGuy)
 
 You can put any name after /hello 
-ex: [http://localhost:5020:hello/<Yourname>](http://localhost:5020/hello/<Yourname>)
+ex: [http://localhost:5020:hello/**<Yourname>](http://localhost:5020/hello/<Yourname>)
 
 If taking time to comeup, please refresh the page
 
@@ -56,8 +56,11 @@ Install and run [Minikube](https://kubernetes.io/docs/setup/minikube/):
 Start the cluster:
 
 ```sh
-$ minikube start --memory=4096 --cpus 4 --driver=hyperkit
-$ minikube dashboard
+minikube start --memory=4096 --cpus 4 --driver=hyperkit   ---> For Unix
+
+minikube start --memory=4096 --cpus 4 --driver=hyperkit ---> For MAC
+
+minikube dashboard
 ```
 
 #### Volume

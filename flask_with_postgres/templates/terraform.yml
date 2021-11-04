@@ -1,0 +1,179 @@
+variables:
+  #AWS_DEPLOYMENT_ROLE: ""
+  TERRAFORM_DIRECTORY_NAME: "infra"
+  TERRAFORM_DIRECTORY_NAME_VARIABLES: "envs"
+  CODE_PATH: ""
+  
+
+.base_terraform:
+  image:
+    #name: hashicorp/terraform:0.14.3
+    name: alpine:3.13
+    entrypoint: [""]
+  variables:
+    # CODE_PATH: ""
+  before_script:
+    # Add authentication for Git URLs (e.g. in Terraform)
+    - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@source.tui".insteadOf https://source.tui
+    - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@source.tui".insteadOf ssh://git@ssh.source.tui
+
+
+    # # Possibility to add own SSH keys to the pipeline as environment variable
+    # - if [ -n "$SSH_PRIVATE_KEY_PIPELINE" ]; then eval $(ssh-agent -s); echo "$SSH_PRIVATE_KEY_PIPELINE" | tr -d '\r' | ssh-add - > /dev/null; fi
+    # - if [ -n "$SSH_PRIVATE_KEY_PIPELINE" ]; then mkdir -p ~/.ssh; chmod 700 ~/.ssh; echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config; fi
+
+    # Manipulate the identifier lines, so that we can use the part after the identifier for the pipeline
+    # - find $CI_PROJECT_DIR/ -type f -exec sed -i -e "s/.*$REPLACE_PATTERN//g" {} \;
+    # - cd $CI_PROJECT_DIR/$TERRAFORM_DIRECTORY_NAME
+    - cd $TERRAFORM_DIRECTORY_NAME/$CODE_PATH
+    - ls -l
+    - pwd
+    - terraform init
+      --backend-config="address=${TERRAFORM_BACKEND_URL}"
+      --backend-config="username=${TERRAFORM_BACKEND_USERNAME}"
+      --backend-config="password=${TERRAFORM_BACKEND_PASSWORD}"
+
+    - terraform workspace select $WORKSPACE || terraform workspace new $WORKSPACE
+    - terraform workspace list
+    - terraform workspace show
+
+.plan_terraform:
+  extends: .base_terraform
+  stage: plan
+  script:
+    - terraform validate
+    - terraform plan -out ./${AWS_ACCOUNT_NAME}-${CI_PIPELINE_ID}.plan
+   # - terraform plan -var-file=$TERRAFORM_DIRECTORY_NAME_VARIABLES/$CI_ENVIRONMENT_NAME.tfvars -out "$CI_ENVIRONMENT_NAME.tfplan"
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - $TERRAFORM_DIRECTORY_NAME/${AWS_ACCOUNT_NAME}-${CI_PIPELINE_ID}.plan
+
+.deploy_terraform:
+  extends: .base_terraform
+  stage: deploy
+  script:
+    - echo "version...: $version"
+    - terraform apply -input=false -auto-approve "${AWS_ACCOUNT_NAME}-${CI_PIPELINE_ID}.plan"
+
+.destroy_terraform:
+  extends: .base_terraform
+  stage: destroy
+  script:
+    - terraform destroy -input=false -auto-approve -var-file=$TERRAFORM_DIRECTORY_NAME_VARIABLES/$CI_ENVIRONMENT_NAME.tfvars
+
+####------------------------------------------------###
+# backends using the GitLab provided http backend
+#####------------------------------------------------####
+
+.base_terraform_http:
+  image:
+    name: registry.gitlab.com/gitlab-org/terraform-images/stable:latest
+    # name: hashicorp/terraform:0.14.3
+    entrypoint: [""]
+  variables:
+    TF_STATE: ${CI_PROJECT_NAME}-${CI_COMMIT_REF_NAME}
+    TF_ADDRESS: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state
+  before_script:
+    - apk update
+    - apk add git
+    - apk add bash npm -q
+    - apk add --no-cache python3 py3-pip
+    - terraform --version
+
+    - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@source.tui".insteadOf https://source.tui
+    - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@source.tui".insteadOf ssh://git@ssh.source.tui
+
+    - ls -l
+    - cd $TERRAFORM_DIRECTORY_NAME/$CODE_PATH
+    # - git_version=$(git log --pretty=format:'%h' -n 1)
+    # - echo "Git version... $git_version"
+    - ls -l
+
+    - echo "Base state address for this repository ${TF_ADDRESS}"
+    - echo "Using ${TF_STATE} as the specific statekey"
+    - echo "Full state path ${TF_ADDRESS}/${TF_STATE}"
+
+    - terraform init
+      --backend-config="address=${TF_ADDRESS}/${TF_STATE}"
+      --backend-config="lock_address=${TF_ADDRESS}/${TF_STATE}/lock"
+      --backend-config="unlock_address=${TF_ADDRESS}/${TF_STATE}/lock"
+      --backend-config="username=gitlab-ci-token"
+      --backend-config="password=${CI_JOB_TOKEN}"
+      --backend-config="lock_method=POST"
+      --backend-config="unlock_method=DELETE"
+      --backend-config="retry_wait_min=5"
+
+    #- terraform import module.preprod.module.alb.aws_acm_certificate.main[0] arn:aws:acm:eu-central-1:438229473041:certificate/8494e0c7-6670-40c3-9731-8b6589aee4f6
+
+.validate_terraform_http:
+  extends: .base_terraform_http
+  script:
+    - terraform validate
+
+.plan_terraform_http:
+  extends: .base_terraform_http
+  script:
+    # - terraform validate
+    - echo "Going to execute terraform plan"
+    #- terraform import module.preprod.module.alb.aws_acm_certificate.main[0] arn:aws:acm:eu-central-1:438229473041:certificate/8494e0c7-6670-40c3-9731-8b6589aee4f6
+    # - terraform plan -out test.plan
+    - terraform plan
+
+# the notification script thing was kind of cool so I left it in - once we have a readme for this we could
+# show how to set that up, for now it won't do anything if the script does not exist
+.deploy_terraform_http:
+  extends: .base_terraform_http
+  script:
+    # - export NOTIFICATION_SCRIPT=$CI_PROJECT_DIR/deployment_notification.sh
+    - ls -l
+    - pwd
+    - terraform apply -auto-approve
+    # - if [ -f $NOTIFICATION_SCRIPT ];then $NOTIFICATION_SCRIPT "planned";fi
+    # - if [ -f $NOTIFICATION_SCRIPT ];then terraform apply -auto-approve -no-color || ($NOTIFICATION_SCRIPT "failed" && false); else terraform apply -auto-approve -no-color;fi
+    # - if [ -f $NOTIFICATION_SCRIPT ];then $NOTIFICATION_SCRIPT "successful";fi
+
+.destroy_terraform_http:
+  extends: .base_terraform_http
+  script:
+    - terraform destroy -auto-approve -no-color
+
+####------------------------------------------------###
+# terraform security scan
+#####------------------------------------------------####
+.tfsec-scan:
+  image:
+    name: tfsec/tfsec:$TFSEC_VERSION
+    entrypoint: [""]
+  variables:
+    TFSEC_VERSION: v0.39
+    TFSEC_SRC: infra
+    TFSEC_EXCLUDE_CHECK: ""
+    TFSEC_FORMAT: default
+    TFSEC_TFVARS_FILE: ""
+    TFSEC_OUT_FILE: ""
+    TFSEC_INTERNAL_TFVARS_ARG: ""
+    TFSEC_INTERNAL_OUT_ARG: ""
+  script:
+    - if [[ ! -z "$TFSEC_TFVARS_FILE" ]]; then TFSEC_INTERNAL_TFVARS_ARG="--tfvars-file $TFSEC_TFVARS_FILE"; fi
+    - if [[ ! -z "$TFSEC_OUT_FILE" ]]; then TFSEC_INTERNAL_OUT_ARG="--out $TFSEC_OUT_FILE"; fi
+    - tfsec $TFSEC_SRC --exclude $TFSEC_EXCLUDE_CHECK --format $TFSEC_FORMAT $TFSEC_INTERNAL_TFVARS_ARG $TFSEC_INTERNAL_OUT_ARG
+
+.tfscan_terraform_http:
+  extends: .base_terraform_http
+  image:
+    name: tfsec/tfsec:$TFSEC_VERSION
+    entrypoint: [""]
+  variables:
+    TFSEC_VERSION: v0.39
+    TFSEC_SRC: infra
+    TFSEC_EXCLUDE_CHECK: ""
+    TFSEC_FORMAT: default
+    TFSEC_TFVARS_FILE: ""
+    TFSEC_OUT_FILE: ""
+    TFSEC_INTERNAL_TFVARS_ARG: ""
+    TFSEC_INTERNAL_OUT_ARG: ""
+  script:
+    - if [[ ! -z "$TFSEC_TFVARS_FILE" ]]; then TFSEC_INTERNAL_TFVARS_ARG="--tfvars-file $TFSEC_TFVARS_FILE"; fi
+    - if [[ ! -z "$TFSEC_OUT_FILE" ]]; then TFSEC_INTERNAL_OUT_ARG="--out $TFSEC_OUT_FILE"; fi
+    - tfsec $TFSEC_SRC --exclude $TFSEC_EXCLUDE_CHECK --format $TFSEC_FORMAT $TFSEC_INTERNAL_TFVARS_ARG $TFSEC_INTERNAL_OUT_ARG
