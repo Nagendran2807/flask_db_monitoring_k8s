@@ -193,8 +193,11 @@ minikube service <service-name> --url
 ```
 
 ![Flask testing](images/flask_testing.png)
+
 ![Grafana testing](images/grafana_testing.png)
+![Grafana monitoring](images/grafana_monitoring.png)
 ![Prometheus testing](images/prometheus_testing.png)
+
 
 ####  Cheat Commands ####
 ```sh
