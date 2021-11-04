@@ -6,5 +6,5 @@ Please go through flask_with_postgres Readme.md page
 
 
 flask_with_postgres contains two section
-1. docker-compose   ## To test locally
-2. Kubernetes       ## To deploy app & db in K8s using minikube
+1. docker-compose        ## To test locally
+2. Kubernetes            ## To deploy app & db in K8s using minikube
