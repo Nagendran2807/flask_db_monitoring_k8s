@@ -4,8 +4,8 @@ before_script:
 include:
 
   ## terraform module for infra compoents and lambda 
-  - project: "customer/cloud-engineering/terraform/tf-customer-modules-templates"
-    file: "templates/terraform.yml"
+  - project: "terraform/templates"
+    file: "templates/terraform.yml"t
     ref: v2.0.0
 
   ## common variables ##

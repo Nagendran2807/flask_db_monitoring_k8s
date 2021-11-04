@@ -39,6 +39,9 @@ ex: [http://localhost:5020:hello/**<Yourname>](http://localhost:5020/hello/<Your
 
 If taking time to comeup, please refresh the page
 
+![Flask_Page](images/flask_page.png)
+![Hello_Page](images/hello.png)
+
 Note:
 -------
 TeamName & players box support string
@@ -56,7 +59,7 @@ Install and run [Minikube](https://kubernetes.io/docs/setup/minikube/):
 Start the cluster:
 
 ```sh
-minikube start --memory=4096 --cpus 4 --driver=hyperkit   ---> For Unix
+minikube start --memory=4096 --cpus 4 --driver=virtualbox   ---> For Unix
 
 minikube start --memory=4096 --cpus 4 --driver=hyperkit ---> For MAC
 
@@ -82,12 +85,14 @@ kubectl apply -f ./kubernetes/postgres/postgres.yml
 Create the database:
 
 ```sh
-kubectl get pods
+kubectl get pods  ### make sure postgres running.. If not wait few seconds to container up
 
 pod_name=$(kubectl get po -l db=postgres -o jsonpath="{.items[0].metadata.name}")
 
 kubectl exec -it $pod_name -it -- createdb -U postgres demo_db
+```
 
+```sh
 kubectl exec -it $pod_name -i -- psql -U postgres <<EOF
 ALTER USER postgres WITH PASSWORD 'admin123';
 EOF
@@ -115,16 +120,57 @@ kubectl apply -f ./kubernetes/flask/flask.yml
 --------------------------------------------------
 ### MONITORING  ###
 -------------------------------------------------
+Implemented Promethus & Grafana to moniotor....
+
+![Monitoring](images/monitoring.png)
+
+Prometheus Architecture :
+--------------------------
+![Prometheus Architecture](images/prometheus_intro.png)
 
 ``` sh
 kubectl create -f ./kubernetes/monitoring/manifests/setup/
 kubectl create -f ./kubernetes/monitoring/manifests/
+```
 
-kubectl get all -n monitoring
+```sh
+kubectl get all -n monitoring   ## list all resouces w.r.t monitoriong
+```
+![Monitoring_Resources](images/monitoring_resources.png)
+
 
 ## Destroying / Tearing down Prometheus Grafana stack 
 kubectl delete --ignore-not-found=true -f ./kubernetes/monitoring/manifests/ -f ./kubernetes/monitoring/manifests/setup
 ```
+
+-------------------------------------------
+### Configure Ingress ####
+---------------------------------------------
+If you dont want to use Ingress..., 
+Please use minikube service <service-name> --url command ---> Can use the URL which shown here to access that service
+``` sh 
+minikube addons enable ingress
+minikube addons enable ingress-dns
+```
+Please follow the link to setup ingress dns for minikube - [ingress-dns](https://minikube.sigs.k8s.io/docs/handbook/addons/ingress-dns/)
+
+minkube ip should be reachable...
+Please follow the steps to resolve minikube ip..
+```sh
+kubectl apply -f ./kubernetes/ingress.yml
+```
+
+```sh 
+nslookup flask.testing.com $(minikube ip)
+nslookup grafana.testing.com $(minikube ip)
+nslookup prometheus.testing.com $(minikube ip)
+nslookup prometheus-alert.testing.com $(minikube ip)
+```
+when execute above command you able to see minikube ip as nameserver resolver
+
+![Minikube IP](images/minikube_ip.png)
+
+![Resolver File](images/resolver_file.png)
 
 Note: Right now, many services we exposed via nodeport... so have to use minikube IP and port no to browse the page...
 
@@ -139,29 +185,22 @@ Default credentials for Grafana...:
 username: admin
 password: admin
 
--------------------------------------------
-### Configure Ingress ####
----------------------------------------------
-If you dont want to use Ingress..., 
-Please use minikube service <service-name> --url command ---> Can use the URL which shown here to access that service
-``` sh 
-minikube addons enable ingress
-minikube addons enable ingress-dns
-minikube addons enable metrics-server
-```
-Please follow the link to setup ingress dns for minikube - [ingress-dns](https://minikube.sigs.k8s.io/docs/handbook/addons/ingress-dns/)
+Prometheus already integrated with Grafana as data source... Please check default dashboards and select any one of dasboard to view the metrics...
 
-bootstrap
-6417
+Incase not able to use minikube ingress then use below one to expose the service... but need to expose above all services different terminal to browse.... 
 ```sh
+minikube service <service-name> --url 
 ```
-Prometheus Architecture :
---------------------------
-![Prometheus Architecture](images/prometheus_intro.png)
+
+![Flask testing](images/flask_testing.png)
+![Grafana testing](images/grafana_testing.png)
+![Prometheus testing](images/prometheus_testing.png)
 
 ####  Cheat Commands ####
 ```sh
 minikube image load  <image-nme>  #### push local docker images to minikube 
+
+minikube service list    #### list the services
 
 psql -h localhost -U postgres -d postgres -p 5432   ### connect ppostgresql
 
@@ -224,12 +263,12 @@ Terraform
 
 
 Step 1: Modularized our components such as VPC, EC2, lambda, S3 etc using terraform as much as possible to meet our demands...
-Step 2: Provisioning Gitlab runner auto scaling with AWS Spot instances to reduce the cost... Configure the Gitlab Runner either make it as a template and use service catalog to deploy multiple regions & account wherever required
+Step 2: Provisioning Gitlab runner auto scaling with AWS Spot instances to reduce the cost... Configure the Gitlab Runner either make it as a template (or) use service catalog to deploy multiple regions & account wherever required
 Step 3: Create a repo in Gitlab
 Step 4: For backend, either we can use Gitlab Backend or AWS S3 backend 
 Note to remember when select Gitlab Backend...:  People can trigger the pipline but able to execute terraform apply command who have maintainer access role in gitlab
 
-Step 5: In s3, state file could then be located at <bucket>/<workspace_key_prefix>/<workspace>/<key>. If we substitute workspace with ap-southeast-1 or ap-southeast-2, if we substitute the variables workspace_key_prefix with product-a and key with terraform.tfstate, we end up with state files stored as:
+Step 5: In s3, state file could be located at <bucket>/<workspace_key_prefix>/<workspace>/<key>. If we substitute workspace with ap-southeast-1 or ap-southeast-2, if we substitute the variables workspace_key_prefix with product-a and key with terraform.tfstate, we end up with state files stored
 
 This sets up grouping infrastructure states at a product/project level while establishing isolation between deployments to different regions while storing all those states conveniently in one place
 
@@ -262,13 +301,12 @@ terraform plan -var-file=ap-southeast-1.tfvars
 terraform apply -var-file=ap-southeast-1.tfvars
 ```
 
-
 #### How we deploy production application on cloud ###
 Below things should consider when deploy apps in K8s...
 1. Application is Stateful or Stateless
 2. If it's java based then will come up with heap, cpu, memory calculations
 3. Application scaling based on CPU (we can achieve using hpa object in k8s)
-4. Decide which database we gonna use... Prefer either Aurora MySQL or Aurora PostgreSQl
+4. Decide which database we gonna use... Prefer either Aurora MySQL or Aurora PostgreSQl (if we plan to choose MySQL or PostgreSQL)
 Why Aurora...?
 (i) Scaling based on CPU 
 (ii) Can make it as global database (across multiple regions)
@@ -283,10 +321,10 @@ Why Aurora...?
 8. Need to setup CI-CD to make it faster delivery...
 9. Implement any one of below tool to store the images 
 (JFrog, ECR, DTR, Nexus)
-10. If we gitlab CI, then we can use Gitlab Registry
+10. If we use gitlab CI, then we can use Gitlab Registry
 
 Need to integrate Gitlab CI CD to kubernetes...
-Added sample file for gitlab ci cd k8s... Used test & prod as of now...
+Added sample file for gitlab ci cd k8s... Mentioned sample one...
 Inorder to push images to the docker.io registry. we need to provide client's authentication credentials
 ```sh
 <servers>
@@ -297,10 +335,10 @@ Inorder to push images to the docker.io registry. we need to provide client's au
    </server>
 </servers>
 ```
-Have attached the pipeline file if application is nodejs and consider to deploy in lambda...
+Have attached the pipeline file if application is nodejs and consider to deploy in lambda... (end to end use Gitlab CI and aws components as terraform modularized)
 
 
-Gitlab CI provide end to end solution
+Gitlab CI CD provide end to end solution
 1. Source Control Repository
 2. Gitlab Image Registry
 3. Gitlab backend to store terraform files
@@ -309,3 +347,10 @@ Gitlab CI provide end to end solution
 6. can reuse our template as much as possible 
 
 
+Pseudo code added both lambda & k8s w.r.t gitlab ci-cd.
+
+Template  ---->  [terraform](templates/terraform.yml)
+
+Lambda Code ---> [lambda](gitlab-ci-cd-lambda.yml)
+
+K8s  ---> [k8s](gitlab-ci-cd-k8s.yml)

@@ -5,7 +5,7 @@ metadata:
   name: flask-ingress
 spec:
   rules:
-    - host: flask.testing
+    - host: flask.testing.com
       http:
         paths:
           - path: /
@@ -25,7 +25,7 @@ metadata:
   namespace: monitoring
 spec:
   rules:
-    - host: grafana.testing
+    - host: grafana.testing.com
       http:
         paths:
           - path: /
@@ -44,7 +44,7 @@ metadata:
   namespace: monitoring
 spec:
   rules:
-    - host: prometheus.testing
+    - host: prometheus.testing.com
       http:
         paths:
           - path: /
@@ -64,7 +64,7 @@ metadata:
   namespace: monitoring
 spec:
   rules:
-    - host: promethus-alert.testing
+    - host: promethus-alert.testing.com
       http:
         paths:
           - path: /
